@@ -8,47 +8,80 @@ from elasticsearch import Elasticsearch
 # 기본 설정
 # -----------------------------
 st.set_page_config(
-    page_title="정케빈의 AI 위키 검색기",
-    page_icon="📘",
+    page_title="강사사의 AI 위키 검색기",
+    page_icon="🤖",
     layout="wide"
 )
 
-# Streamlit 스타일 커스터마이징
+# -----------------------------
+# 스타일 커스터마이징
+# -----------------------------
 st.markdown("""
     <style>
     body {
-        background-color: #f8fafc;
+        background: radial-gradient(circle at top left, #0f172a, #1e293b, #0f172a);
+        color: #e2e8f0;
+        font-family: 'Pretendard', 'Noto Sans KR', sans-serif;
     }
     .main-title {
         text-align: center;
-        color: #1e3a8a;
-        font-size: 2.5rem;
-        font-weight: bold;
-        margin-top: -20px;
+        font-size: 3rem;
+        font-weight: 800;
+        background: linear-gradient(90deg, #38bdf8, #6366f1, #8b5cf6);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        letter-spacing: -1px;
+        margin-top: -10px;
     }
     .sub-title {
         text-align: center;
-        color: #475569;
-        font-size: 1.1rem;
+        color: #94a3b8;
+        font-size: 1.2rem;
+        margin-bottom: 40px;
     }
     .result-card {
-        background-color: white;
-        border-radius: 12px;
-        padding: 20px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        margin-bottom: 15px;
+        background: linear-gradient(145deg, #1e293b, #0f172a);
+        border-radius: 16px;
+        padding: 25px;
+        box-shadow: 0 4px 20px rgba(56,189,248,0.15);
+        color: #e2e8f0;
+        font-size: 1rem;
+        line-height: 1.6;
+        transition: transform 0.3s ease;
+    }
+    .result-card:hover {
+        transform: scale(1.01);
+        box-shadow: 0 8px 25px rgba(99,102,241,0.3);
     }
     .wiki-card {
-        background-color: #f1f5f9;
+        background: rgba(255,255,255,0.05);
+        border-left: 4px solid #38bdf8;
         border-radius: 8px;
-        padding: 10px;
+        padding: 12px 16px;
+        margin-bottom: 10px;
         font-size: 0.9rem;
     }
+    .stButton>button {
+        background: linear-gradient(90deg, #6366f1, #8b5cf6);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-size: 1.1rem;
+        font-weight: bold;
+        padding: 0.6em 1.4em;
+        transition: all 0.3s ease-in-out;
+        box-shadow: 0 4px 15px rgba(99,102,241,0.4);
+    }
+    .stButton>button:hover {
+        background: linear-gradient(90deg, #8b5cf6, #6366f1);
+        transform: scale(1.05);
+        box-shadow: 0 6px 20px rgba(139,92,246,0.6);
+    }
     .footer {
-        color: #94a3b8;
-        font-size: 0.8rem;
+        color: #64748b;
+        font-size: 0.85rem;
         text-align: center;
-        margin-top: 30px;
+        margin-top: 40px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -65,7 +98,6 @@ es = Elasticsearch(
     api_key=ELASTIC_API_KEY
 )
 
-# 연결 테스트
 try:
     es.info()
 except Exception as e:
@@ -73,34 +105,18 @@ except Exception as e:
     st.stop()
 
 # -----------------------------
-# 헤더 및 소개 섹션
+# 헤더 섹션
 # -----------------------------
-st.markdown("<h1 class='main-title'>📘 한글로 답변하는 영문 위키 기반 AI</h1>", unsafe_allow_html=True)
-st.markdown("<p class='sub-title'>Semantic Search + RAG 기반 | Powered by Elasticsearch & OpenAI</p>", unsafe_allow_html=True)
+st.markdown("<h1 class='main-title'>🤖 AI 위키 검색 어시스턴트</h1>", unsafe_allow_html=True)
+st.markdown("<p class='sub-title'>한글 질문 → 영어 위키 기반 의미검색 + RAG 응답 시스템</p>", unsafe_allow_html=True)
 st.divider()
-
-with st.expander("📄 서비스 설명", expanded=False):
-    st.caption("""
-    이 서비스는 **영문 위키피디아 데이터셋(25,000건)**을 기반으로
-    한국어 질문에 대해 **의미 검색(Semantic Search)** 및 **RAG(Retrieval-Augmented Generation)** 기술을 활용해
-    한글로 답변을 제공합니다.
-
-    **예시 질문**
-    - 대서양은 몇 번째로 큰 바다인가?
-    - 대한민국의 수도는?
-    - 도요타에서 가장 많이 팔리는 차는?
-
-    **데이터 출처**
-    - [Wikipedia Embeddings Dataset](https://cdn.openai.com/API/examples/data/vector_database_wikipedia_articles_embedded.zip)
-    - [데이터 설명](https://weaviate.io/developers/weaviate/tutorials/wikipedia)
-    """)
 
 # -----------------------------
 # 질문 입력 섹션
 # -----------------------------
 st.markdown("### 💬 질문을 입력하세요")
 question = st.text_input("Prompt", placeholder="예: 대서양은 몇 번째로 큰 바다인가?")
-submit = st.button("🚀 질문하기")
+submit = st.button("🚀 AI에게 물어보기")
 
 # -----------------------------
 # 처리 로직
@@ -108,19 +124,16 @@ submit = st.button("🚀 질문하기")
 if submit and question:
     with st.spinner("🤖 Kevin AI가 답변을 생성 중입니다..."):
         try:
-            # Step 1. 한국어 → 영어 번역
             translation = client.chat.completions.create(
                 model="gpt-3.5-turbo",
-                messages=[{"role": "user", "content": f"Translate the following Korean question into English: {question}"}]
+                messages=[{"role": "user", "content": f"Translate this Korean question into English: {question}"}]
             ).choices[0].message.content.strip()
 
-            # Step 2. 질문 임베딩 생성
             embedding = client.embeddings.create(
                 input=[translation],
                 model="text-embedding-ada-002"
             ).data[0].embedding
 
-            # Step 3. Elasticsearch 검색
             response = es.search(
                 index="wikipedia_vector_index",
                 knn={
@@ -131,7 +144,6 @@ if submit and question:
                 }
             )
 
-            # Step 4. 상위 문서 요약 및 답변
             top_hit = response['hits']['hits'][0]['_source']
             summary = client.chat.completions.create(
                 model="gpt-3.5-turbo",
@@ -141,19 +153,16 @@ if submit and question:
                 ]
             )
 
-            # -----------------------------
-            # 결과 출력
-            # -----------------------------
             st.divider()
             st.markdown("### 🧠 AI의 답변")
             st.markdown(f"<div class='result-card'>{summary.choices[0].message.content}</div>", unsafe_allow_html=True)
 
-            st.markdown("### 🔎 검색된 문서 목록")
+            st.markdown("### 🔍 참고 문서 목록")
             for hit in response['hits']['hits']:
                 title = hit['_source']['title']
                 url = hit['_source']['url']
                 score = round(hit['_score'], 2)
-                st.markdown(f"<div class='wiki-card'>🔗 [{title}]({url})<br/>점수: {score}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='wiki-card'>🔗 <a href='{url}' target='_blank'>{title}</a> — 점수: {score}</div>", unsafe_allow_html=True)
 
         except Exception as e:
             st.error(f"⚠️ 오류 발생: {e}")
@@ -161,4 +170,4 @@ if submit and question:
 # -----------------------------
 # Footer
 # -----------------------------
-st.markdown("<div class='footer'>© 2025 Kevin AI | Powered by OpenAI & Elasticsearch</div>", unsafe_allow_html=True)
+st.markdown("<div class='footer'>© 2025 Kevin AI | Powered by OpenAI & Elasticsearch | Designed with 💎 by Streamlit</div>", unsafe_allow_html=True)
